@@ -493,14 +493,40 @@ namespace Lab5
                         {
                             if(value.TypeCode == (short)DxfCode.Real)
                             {
+                                Point3d point = entity.GetPointAtDist((double)value.Value);
 
+                                Point2d pixels = e.Context.DrawContext.Viewport.GetNumPixelsInUnitSquare(point);
+
+                                double xDistance = (10 / pixels.X);
+                                double yDistance = (10 / pixels.Y);
+
+                                Circle circle = new Circle(point, Vector3d.ZAxis, xDistance);
+                                e.Context.DrawContext.Geometry.Draw(circle);
+
+                                DBText text = new DBText();
+
+                                text.SetDatabaseDefaults();
+
+                                text.Position = (point + new Vector3d(xDistance, yDistance, 0));
+
+                                text.TextString = value.Value.ToString();
+                                text.Height = yDistance;
+                                text.ColorIndex = 5;
+
+                                e.Context.DrawContext.Geometry.Draw(text);
                             }
                         }
                     }
+
+                    transaction.Commit();
                 }
                 catch (System.Exception ex)
                 { 
 
+                }
+                finally
+                {
+                    transaction.Dispose();
                 }
             }
         }
