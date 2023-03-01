@@ -355,6 +355,21 @@ namespace Lab5
             editor.PointMonitor -= new PointMonitorEventHandler(MyInputMonitor);
         }
 
+        [CommandMethod("circleJig")]
+        public void CircleJig()
+        {
+            Circle circle = new Circle(Point3d.Origin, Vector3d.ZAxis, 10);
+
+            MyCircleJig myCircleJig = new MyCircleJig(circle);
+
+            for(int i = 0; i < 1; i++)
+            {
+                myCircleJig.CurrentInput = i;
+
+                Editor editor = Application.DocumentManager.MdiActiveDocument.Editor;
+            }
+        }
+
 
         private void callback_ObjectAppended(Object sender, ObjectEventArgs e)
         {
@@ -529,6 +544,88 @@ namespace Lab5
                     transaction.Dispose();
                 }
             }
+        }
+    }
+
+    class MyCircleJig : EntityJig
+    {
+        private Point3d centerPoint;
+        private double radius;
+        private int currentInputValue;
+
+        public int CurrentInput
+        {
+            get { return currentInputValue; }
+            set { currentInputValue = value; }
+        }
+
+        public MyCircleJig(Entity entity) : base(entity)
+        {
+
+        }
+
+        protected override SamplerStatus Sampler(JigPrompts prompts)
+        {
+            switch (currentInputValue)
+            {
+                case 0:
+                    Point3d oldPnt = centerPoint;
+
+                    PromptPointResult jigPromptResult = prompts.AcquirePoint("Pick center point: ");
+
+                    if(jigPromptResult.Status == PromptStatus.OK)
+                    {
+                        centerPoint = jigPromptResult.Value;
+
+                        if (oldPnt.DistanceTo(centerPoint) < 0.001)
+                            return SamplerStatus.NoChange;
+                    }
+
+                    return SamplerStatus.OK;
+
+                case 1:
+                    double oldRadius = radius;
+
+                    JigPromptDistanceOptions jigPromptDistanceOptions = new JigPromptDistanceOptions("Pick radius: ");
+                    jigPromptDistanceOptions.BasePoint = centerPoint;
+
+                    PromptDoubleResult promptDoubleResult = prompts.AcquireDistance(jigPromptDistanceOptions);
+
+                    if(promptDoubleResult.Status == PromptStatus.OK)
+                    {
+                        radius = promptDoubleResult.Value;
+
+                        if (System.Math.Abs(radius) < 0.1)
+                            radius = 1;
+
+                        if (System.Math.Abs(oldRadius - radius) < 0.001)
+                            return SamplerStatus.NoChange;
+                    }
+
+                    return SamplerStatus.OK;
+
+                default:
+                    return SamplerStatus.NoChange;
+            }
+        }
+
+        protected override bool Update()
+        {
+            switch (currentInputValue)
+            {
+                case 0:
+                    ((Circle)this.Entity).Center = centerPoint;
+                    break;
+
+                case 1:
+                    ((Circle)this.Entity).Radius = radius;
+                    break;
+
+                default:
+                    break;
+            }
+
+            return true;
         }
     }
 }
