@@ -5,18 +5,122 @@ using Autodesk.AutoCAD.Geometry;
 using Autodesk.AutoCAD.Runtime;
 using Autodesk.AutoCAD.Windows;
 using System;
+using System.Runtime.InteropServices;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Threading.Tasks;
 
+
+[assembly: ExtensionApplication(typeof(Lab5.Class1))]
 namespace Lab5
 {
-    public class Class1
+    public class Class1 : IExtensionApplication
     {
+        ContextMenuExtension contextMenu;
+
+        private void AddContextMenu()
+        {
+            Editor editor = Application.DocumentManager.MdiActiveDocument.Editor;
+
+            try
+            {
+                contextMenu = new ContextMenuExtension();
+
+                contextMenu.Title = "Circle Jig";
+
+                MenuItem menuItem = new MenuItem("Run Circle Jig");
+
+                menuItem.Click += CallbackOnClick;
+
+                contextMenu.MenuItems.Add(menuItem);
+
+                Application.AddDefaultContextMenuExtension(contextMenu);
+            }
+            catch (System.Exception ex)
+            {
+                editor.WriteMessage($"ERROR: {ex.Message}");
+            }
+        }
+
+        public void RemoveContextMenu()
+        {
+            Document document = Application.DocumentManager.MdiActiveDocument;
+
+            try
+            {
+                if(contextMenu != null)
+                {
+                    Application.RemoveDefaultContextMenuExtension(contextMenu);
+
+                    contextMenu = null;
+                }
+            }
+            catch (System.Exception ex)
+            {
+                if(document != null)
+                {
+                    document.Editor.WriteMessage($"ERROR: {ex.Message}");
+                }
+            }
+        }
+
+        private void CallbackOnClick(Object sender, EventArgs e)
+        {
+            using (DocumentLock documentLock = Application.DocumentManager.MdiActiveDocument.LockDocument())
+            {
+                CircleJig();
+
+                acedPostCommand("CANCELCMD");
+            }
+        }
+
+        public void Initialize()
+        {
+            AddContextMenu();
+
+            AddTabDialog();
+        }
+
+        public void Terminate()
+        {
+            RemoveContextMenu();
+
+
+        }
+
+        [DllImport("acad.exe", CharSet = CharSet.Unicode, EntryPoint = "?acedPostCommand@@YAHPB_W@Z")]
+        public static extern bool acedPostCommand(string cmd);
+
+        public static String myVariable;
+
+        public static void AddTabDialog()
+        {
+            Application.DisplayingOptionDialog += TabHandler;
+        }
+
+        public static void TabHandler(Object sender, TabbedDialogEventArgs e)
+        {
+            UserControl2 userControl2 = new UserControl2();
+
+            TabbedDialogAction tabbedDialogAction = new TabbedDialogAction(userControl2.OnOk);
+
+            TabbedDialogExtension tabbedDialogExtension = new TabbedDialogExtension(userControl2, tabbedDialogAction);
+
+            e.AddTab("Value for custom variable", tabbedDialogExtension);
+        }
+
+        [CommandMethod("testTab")]
+        public void TestTab()
+        {
+            Editor editor = Application.DocumentManager.MdiActiveDocument.Editor;
+
+            editor.WriteMessage(myVariable.ToString());
+        }
+
         [CommandMethod("addAnEnt")]
-        public void AddAnEntity()
+        public static void AddAnEntity()
         {
             Editor editor = Application.DocumentManager.MdiActiveDocument.Editor;
 
@@ -57,7 +161,7 @@ namespace Lab5
                                 }
                                 catch (System.Exception ex)
                                 {
-                                    editor.WriteMessage($"ERROR: {ex}");
+                                    editor.WriteMessage($"ERROR: {ex.Message}");
                                 }
                                 finally
                                 {
@@ -124,7 +228,7 @@ namespace Lab5
                             }
                             catch (System.Exception ex)
                             {
-                                editor.WriteMessage($"ERROR: {ex}");
+                                editor.WriteMessage($"ERROR: {ex.Message}");
                             }
                             finally
                             {
@@ -260,7 +364,7 @@ namespace Lab5
                 }
                 catch (System.Exception ex)
                 {
-                    editor.WriteMessage($"ERROR: {ex}");
+                    editor.WriteMessage($"ERROR: {ex.Message}");
                 }
                 finally
                 {
@@ -319,7 +423,7 @@ namespace Lab5
             }
             catch (System.Exception ex) 
             {
-                editor.WriteMessage($"ERROR: {ex}");
+                editor.WriteMessage($"ERROR: {ex.Message}");
             }
             finally
             {
@@ -367,6 +471,36 @@ namespace Lab5
                 myCircleJig.CurrentInput = i;
 
                 Editor editor = Application.DocumentManager.MdiActiveDocument.Editor;
+
+                PromptResult promptResult = editor.Drag(myCircleJig);
+
+                if(promptResult.Status == PromptStatus.Cancel | promptResult.Status == PromptStatus.Error)
+                {
+                    return;
+                }
+
+                Database db = Application.DocumentManager.MdiActiveDocument.Database;
+
+                Transaction transaction = db.TransactionManager.StartTransaction();
+
+                try
+                {
+                    BlockTableRecord blockTableRecord = (BlockTableRecord)transaction.GetObject(db.CurrentSpaceId, OpenMode.ForWrite);
+
+                    blockTableRecord.AppendEntity(circle);
+
+                    transaction.AddNewlyCreatedDBObject(circle, true);
+
+                    transaction.Commit();
+                }
+                catch (System.Exception ex)
+                {
+
+                }
+                finally
+                {
+                    transaction.Dispose();
+                }
             }
         }
 
